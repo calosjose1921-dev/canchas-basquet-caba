@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canchas de Basquet CABA</title>
-
+    
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
+    
     <style>
         body {
             margin: 0;
@@ -19,6 +20,7 @@
             overflow: hidden;
         }
 
+        /* Sidebar UI */
         #sidebar {
             width: 360px;
             min-width: 360px;
@@ -124,7 +126,7 @@
             color: white;
             text-align: center;
         }
-
+        
         .btn-search { background-color: #3483fa; }
         .btn-search:hover { background-color: #2968c8; }
 
@@ -179,6 +181,7 @@
             word-wrap: break-word;
         }
 
+        /* Map UI */
         #map-container {
             flex-grow: 1;
             position: relative;
@@ -190,6 +193,7 @@
             z-index: 1;
         }
 
+        /* Marker Styles */
         .marker-pin {
             width: 24px;
             height: 24px;
@@ -205,7 +209,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
             transition: transform 0.2s;
         }
-
+        
         .marker-pin:hover { transform: scale(1.15); }
         .hide-numbers .marker-pin { color: transparent; }
         .hide-points .leaflet-marker-icon { display: none; }
@@ -289,16 +293,12 @@
         <div id="map"></div>
     </div>
 
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Turf.js -->
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-
+    
     <script>
-        // =================================================================
-        // CORRECCIÓN OSM: Esto evita el error 403 "Access blocked"
-        // Es la solución oficial recomendada por la OSM Foundation.
-        // =================================================================
-        L.TileLayer.prototype.options.referrerPolicy = 'strict-origin-when-cross-origin';
-
         const puntosDatos = [
             { id: 1, nombre: "Murguiondo 3945, CABA", lat: -34.6811, lng: -58.4735 },
             { id: 2, nombre: "Avenida Avellaneda 3800, CABA", lat: -34.6293, lng: -58.4815 },
@@ -331,27 +331,23 @@
         ];
 
         const limitesCABA = [
-            [-34.705, -58.535],
-            [-34.525, -58.335]
+            [-34.705, -58.535], 
+            [-34.525, -58.335]  
         ];
 
-        const map = L.map('map', {
+        const map = L.map('map', { 
             zoomControl: false,
             maxBounds: limitesCABA,
             maxBoundsViscosity: 1.0,
             minZoom: 11
         }).setView([-34.6131, -58.4423], 12);
-
+        
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // =================================================================
-        // TILE LAYER: OpenStreetMap estándar (sin API key)
-        // El referrerPolicy configurado arriba evita el error 403.
-        // =================================================================
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ',
             maxZoom: 19,
-            opacity: 0.85
+            opacity: 0.8
         }).addTo(map);
 
         const capaPoligonos = L.layerGroup().addTo(map);
@@ -372,12 +368,12 @@
 
         const featurePoints = puntosDatos.map(p => turf.point([p.lng, p.lat]));
         const puntosGeoJSON = turf.featureCollection(featurePoints);
-        const bbox = [-58.55, -34.72, -58.33, -34.52];
+        const bbox = [-58.55, -34.72, -58.33, -34.52]; 
         const voronoiPolygons = turf.voronoi(puntosGeoJSON, { bbox: bbox });
 
         turf.featureEach(voronoiPolygons, (currentFeature, featureIndex) => {
             if (!currentFeature) return;
-
+            
             let finalFeature = currentFeature;
             const clippedFeature = turf.intersect(currentFeature, cabaBoundary);
             if (clippedFeature) {
@@ -385,10 +381,8 @@
             }
 
             const ptInfo = puntosDatos[featureIndex];
-            if (!ptInfo) return;
-
             const colorFill = coloresPasteles[featureIndex % coloresPasteles.length];
-
+            
             const baseStyle = {
                 color: '#ffffff',
                 weight: 2,
@@ -400,7 +394,7 @@
             const polyLayer = L.geoJSON(finalFeature, {
                 style: baseStyle,
                 onEachFeature: function (feature, layer) {
-                    poligonosReferencia[ptInfo.id] = layer;
+                    poligonosReferencia[ptInfo.id] = layer; 
 
                     layer.on({
                         mouseover: function (e) {
@@ -432,7 +426,7 @@
                                 document.getElementById('valDireccion').innerText = "-";
                                 document.getElementById('valPunto').innerText = "-";
                                 document.getElementById('valDistancia').innerText = "-";
-                            }
+                            } 
                             else {
                                 selectedLayer = layer;
                                 layer.setStyle({ weight: 4, color: '#2968c8', fillOpacity: 0.9, opacity: 1 });
@@ -474,13 +468,13 @@
             const verRegiones = document.getElementById('chkRegiones').checked;
             const verBordes = document.getElementById('chkBordes').checked;
             const verNumeros = document.getElementById('chkNumeros').checked;
-
+            
             const container = document.getElementById('map-container');
 
-            if (verPuntos) container.classList.remove('hide-points');
+            if(verPuntos) container.classList.remove('hide-points');
             else container.classList.add('hide-points');
 
-            if (verNumeros) container.classList.remove('hide-numbers');
+            if(verNumeros) container.classList.remove('hide-numbers');
             else container.classList.add('hide-numbers');
 
             Object.values(poligonosReferencia).forEach(layer => {
@@ -497,12 +491,12 @@
             document.getElementById('valDireccion').innerText = '-';
             document.getElementById('valPunto').innerText = '-';
             document.getElementById('valDistancia').innerText = '-';
-
+            
             if (marcadorBusqueda) {
                 map.removeLayer(marcadorBusqueda);
                 marcadorBusqueda = null;
             }
-
+            
             if (selectedLayer) {
                 const verBordes = document.getElementById('chkBordes').checked;
                 const verRegiones = document.getElementById('chkRegiones').checked;
@@ -512,63 +506,27 @@
             map.setView([-34.6131, -58.4423], 12);
         }
 
-        // =================================================================
-        // BÚSQUEDA CORREGIDA
-        // - Cache de resultados para no repetir consultas
-        // - Control de rate limit (mínimo 1 segundo entre requests)
-        // - Header Referer explícito
-        // =================================================================
-        const geocodeCache = new Map();
-        let ultimaPeticion = 0;
-        const INTERVALO_MINIMO = 1100; // 1.1 segundos (margen sobre el límite de 1s)
-
         async function buscarUbicacion() {
             const input = document.getElementById('searchInput').value.trim();
             if (!input) return;
 
             document.getElementById('valDireccion').innerText = "Buscando...";
-            document.getElementById('valPunto').innerText = "-";
-            document.getElementById('valDistancia').innerText = "-";
-
-            // Rate limiting: esperar si es necesario
-            const ahora = Date.now();
-            const tiempoEspera = Math.max(0, INTERVALO_MINIMO - (ahora - ultimaPeticion));
-            if (tiempoEspera > 0) {
-                await new Promise(resolve => setTimeout(resolve, tiempoEspera));
-            }
+            const query = `${input}, Ciudad Autónoma de Buenos Aires, Argentina`;
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=ar&email=calosjose1921@gmail.com`;
 
             try {
-                // Verificar cache primero
-                let data;
-                if (geocodeCache.has(input.toLowerCase())) {
-                    data = geocodeCache.get(input.toLowerCase());
-                } else {
-                    const query = `${input}, Ciudad Autónoma de Buenos Aires, Argentina`;
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`;
-
-                    ultimaPeticion = Date.now();
-
-                    const response = await fetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Accept-Language': 'es-ES,es;q=0.9',
-                            'Referer': window.location.href
-                        }
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 403) {
-                            throw new Error('RATE_LIMIT');
-                        }
-                        throw new Error(`Error HTTP: ${response.status}`);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Language': 'es-ES,es;q=0.9'
                     }
+                });
 
-                    data = await response.json();
-                    geocodeCache.set(input.toLowerCase(), data);
-                }
+                if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+                const data = await response.json();
 
-                if (data && data.length > 0) {
+                if (data.length > 0) {
                     const lat = parseFloat(data[0].lat);
                     const lng = parseFloat(data[0].lon);
 
@@ -577,7 +535,7 @@
                     marcadorBusqueda = L.circleMarker([lat, lng], {
                         radius: 7, fillColor: "#e74c3c", color: "#c0392b", weight: 2, fillOpacity: 1
                     }).addTo(map).bindPopup("<b>Ubicación Encontrada</b>").openPopup();
-
+                    
                     map.setView([lat, lng], 14);
 
                     const ptBuscado = turf.point([lng, lat]);
@@ -610,18 +568,12 @@
                     }
                 } else {
                     document.getElementById('valDireccion').innerText = "No encontrada";
-                    alert("No se encontró la dirección en Capital Federal. Intentá con otro formato (ej: 'Viamonte 2040' o 'Av. Santa Fe 1500').");
+                    alert("No se encontró la dirección en Capital Federal.");
                 }
             } catch (error) {
-                console.error('Error en búsqueda:', error);
-
-                if (error.message === 'RATE_LIMIT') {
-                    document.getElementById('valDireccion').innerText = "Límite alcanzado";
-                    alert("El servicio de búsqueda está temporalmente saturado. Esperá unos segundos y volvé a intentar.");
-                } else {
-                    document.getElementById('valDireccion').innerText = "Error de red";
-                    alert("Error al buscar la dirección. Revisá tu conexión a internet e intentá de nuevo.");
-                }
+                console.error("Error técnico detectado:", error);
+                document.getElementById('valDireccion').innerText = "Error de red";
+                alert("Error de conexión. Es probable que hayas superado el límite de peticiones o tu red bloquee la salida.");
             }
         }
 
