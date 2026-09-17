@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canchas de Basquet CABA</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+            background-color: #f4f6f7;
+            overflow: hidden;
+        }
+
+        /* Sidebar UI */
+        #sidebar {
+            width: 360px;
+            min-width: 360px;
+            background-color: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .header-title svg {
+            width: 28px;
+            height: 28px;
+            fill: #3483fa;
+            flex-shrink: 0;
+        }
+
+        .header-title h1 {
+            font-size: 1.25rem;
+            margin: 0 0 5px 0;
+            color: #1a1a1a;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .header-subtitle {
+            font-size: 0.8rem;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .panel {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #fff;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .panel-title svg {
+            width: 18px;
+            height: 18px;
+            fill: #3483fa;
+        }
+
+        .search-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .search-container input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-container input:focus {
+            border-color: #3483fa;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-group button {
+            flex: 1;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 0;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: background-color 0.2s;
+            color: white;
+            text-align: center;
+        }
+
+        .btn-search { background-color: #3483fa; }
+        .btn-search:hover { background-color: #2968c8; }
+
+        .btn-clear { background-color: #e74c3c; }
+        .btn-clear:hover { background-color: #c0392b; }
+
+        .hint {
+            font-size: 0.75rem;
+            color: #71717a;
+            margin-top: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: #3f3f46;
+            cursor: pointer;
+        }
+
+        .checkbox-label input {
+            width: 16px;
+            height: 16px;
+            accent-color: #3483fa;
+            cursor: pointer;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-label { color: #52525b; }
+        .info-value {
+            font-weight: 500;
+            color: #18181b;
+            text-align: right;
+            max-width: 65%;
+            word-wrap: break-word;
+        }
+
+        /* Map UI */
+        #map-container {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Marker Styles */
+        .marker-pin {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 3px solid #3483fa;
+            color: #3483fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 11px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+
+        .marker-pin:hover { transform: scale(1.15); }
+        .hide-numbers .marker-pin { color: transparent; }
+        .hide-points .leaflet-marker-icon { display: none; }
+    </style>
+</head>
+<body>
+
+    <aside id="sidebar">
+        <div class="header-title">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            <div>
+                <h1>Canchas de Basquet</h1>
+                <div class="header-subtitle">
+                    Capital Federal · Buenos Aires<br>
+                    Análisis de regiones de proximidad a partir de puntos de referencia.
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">
+                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                Buscar dirección en CABA
+            </div>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Ej.: Av. Santa Fe 1500, CABA">
+                <div class="btn-group">
+                    <button class="btn-search" onclick="buscarUbicacion()">Buscar</button>
+                    <button class="btn-clear" onclick="limpiarMapa()">Limpiar</button>
+                </div>
+            </div>
+            <div class="hint">La búsqueda se limita únicamente a CABA.</div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">
+                <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                Visualización
+            </div>
+            <div class="checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkPuntos" checked onchange="toggleVisibilidad()"> Mostrar puntos (22)
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkRegiones" checked onchange="toggleVisibilidad()"> Mostrar regiones de Voronoi
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkBordes" checked onchange="toggleVisibilidad()"> Mostrar bordes
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkNumeros" checked onchange="toggleVisibilidad()"> Mostrar números
+                </label>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">
+                <svg viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                Información
+            </div>
+            <div class="info-row">
+                <span class="info-label">Puntos mapeados:</span>
+                <span class="info-value">22 / 22</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Dirección buscada:</span>
+                <span class="info-value" id="valDireccion">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Punto más cercano:</span>
+                <span class="info-value" id="valPunto">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Distancia lineal:</span>
+                <span class="info-value" id="valDistancia">-</span>
+            </div>
+        </div>
+    </aside>
+
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Turf.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+    <script>
+        // Los nombres han sido modificados EXACTAMENTE a su equivalente físico y geocodificable de CABA
+        const puntosDatos = [
+            { id: 1, nombre: "Murguiondo 3945, CABA", lat: -34.6811, lng: -58.4735 },
+            { id: 2, nombre: "Avenida Avellaneda 3800, CABA", lat: -34.6293, lng: -58.4815 },
+            { id: 3, nombre: "Juana Manso 900, CABA", lat: -34.6111, lng: -58.3619 },
+            { id: 4, nombre: "Avenida de los Constituyentes 2802, CABA", lat: -34.5886, lng: -58.4831 },
+            { id: 5, nombre: "Hilario de Almeira 4800, CABA", lat: -34.6186, lng: -58.5078 },
+            { id: 6, nombre: "Ramallo 2200, CABA", lat: -34.5424, lng: -58.4727 },
+            { id: 7, nombre: "Manuela Pedraza 2700, CABA", lat: -34.5501, lng: -58.4705 },
+            { id: 8, nombre: "Valdenegro 3800, CABA", lat: -34.5552, lng: -58.4870 },
+            { id: 9, nombre: "Avenida General Paz 3802, CABA", lat: -34.5683, lng: -58.5020 },
+            { id: 10, nombre: "Gabriela Mistral 4100, CABA", lat: -34.5888, lng: -58.5085 },
+            { id: 11, nombre: "Capitán General Ramón Freire 120, CABA", lat: -34.5752, lng: -58.4445 },
+            { id: 12, nombre: "Bulnes 400, CABA", lat: -34.6046, lng: -58.4144 },
+            { id: 13, nombre: "Avenida Gaona 2200, CABA", lat: -34.6163, lng: -58.4554 },
+            { id: 14, nombre: "Avenida Rivadavia 10300, CABA", lat: -34.6402, lng: -58.5204 },
+            { id: 15, nombre: "Patron 6232, CABA", lat: -34.6482, lng: -58.5135 },
+            { id: 16, nombre: "Avenida Lacarra 1000, CABA", lat: -34.6455, lng: -58.4783 },
+            { id: 17, nombre: "Yerbal 835, CABA", lat: -34.6203, lng: -58.4449 },
+            { id: 18, nombre: "Monteagudo 100, CABA", lat: -34.6375, lng: -58.4068 },
+            { id: 19, nombre: "Corea 1775, CABA", lat: -34.6450, lng: -58.4395 },
+            { id: 20, nombre: "El Salvador 4037, CABA", lat: -34.5910, lng: -58.4184 },
+            { id: 21, nombre: "La Rioja 1000, CABA", lat: -34.6247, lng: -58.4011 },
+            { id: 22, nombre: "Peru 1250, CABA", lat: -34.6200, lng: -58.3750 }
+        ];
+
+        const coloresPasteles = [
+            '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E6B3FF', '#FFB3E6',
+            '#E2F0CB', '#FFDAC1', '#B5EAD7', '#C7CEEA', '#F1CBFF', '#D4F0F0', '#F3E5AB',
+            '#FFD1DC', '#F0E68C', '#E6E6FA', '#FFF0F5', '#F5FFFA', '#F0FFF0', '#FDF5E6', '#FFFACD'
+        ];
+
+        const limitesCABA = [
+            [-34.705, -58.535],
+            [-34.525, -58.335]
+        ];
+
+        const map = L.map('map', {
+            zoomControl: false,
+            maxBounds: limitesCABA,
+            maxBoundsViscosity: 1.0,
+            minZoom: 11
+        }).setView([-34.6131, -58.4423], 12);
+
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        // =====================================================================
+        // TILE LAYER: CARTO Positron (evita el bloqueo 403 de OpenStreetMap).
+        // Se cargan 3 proveedores en cascada por si alguno falla.
+        // =====================================================================
+        const proveedoresTiles = [
+            {
+                url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                opts: { subdomains: 'abcd', maxZoom: 20 }
+            },
+            {
+                url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                opts: { subdomains: 'abcd', maxZoom: 20 }
+            },
+            {
+                url: 'https://tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                opts: { subdomains: 'abc', maxZoom: 19 }
+            }
+        ];
+
+        let proveedorActual = 0;
+
+        function cargarTileLayer() {
+            const p = proveedoresTiles[proveedorActual];
+            const layer = L.tileLayer(p.url, {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                opacity: 0.9,
+                ...p.opts
+            }).addTo(map);
+
+            layer.on('tileerror', function () {
+                console.warn('Tile provider ' + proveedorActual + ' falló. Probando el siguiente...');
+                map.removeLayer(layer);
+                proveedorActual = (proveedorActual + 1) % proveedoresTiles.length;
+                cargarTileLayer();
+            });
+        }
+
+        cargarTileLayer();
+
+        const capaPoligonos = L.layerGroup().addTo(map);
+        const capaPuntos = L.layerGroup().addTo(map);
+        let poligonosReferencia = {};
+        let marcadorBusqueda = null;
+        let selectedLayer = null;
+
+        // Borde geopolítico de CABA de alta precisión
+        const cabaBoundary = turf.polygon([[
+            [-58.4725,-34.5275], [-58.4630,-34.5320], [-58.4480,-34.5400], [-58.4250,-34.5530],
+            [-58.3970,-34.5700], [-58.3780,-34.5820], [-58.3650,-34.5920], [-58.3550,-34.6050],
+            [-58.3510,-34.6200], [-58.3550,-34.6330], [-58.3650,-34.6430], [-58.3820,-34.6560],
+            [-58.4030,-34.6670], [-58.4280,-34.6800], [-58.4480,-34.6920], [-58.4670,-34.7030],
+            [-58.4780,-34.6950], [-58.4930,-34.6800], [-58.5080,-34.6620], [-58.5230,-34.6450],
+            [-58.5320,-34.6300], [-58.5300,-34.6150], [-58.5220,-34.5980], [-58.5100,-34.5800],
+            [-58.4950,-34.5600], [-58.4820,-34.5450], [-58.4725,-34.5275]
+        ]]);
+
+        const featurePoints = puntosDatos.map(p => turf.point([p.lng, p.lat]));
+        const puntosGeoJSON = turf.featureCollection(featurePoints);
+        const bbox = [-58.55, -34.72, -58.33, -34.52];
+        const voronoiPolygons = turf.voronoi(puntosGeoJSON, { bbox: bbox });
+
+        turf.featureEach(voronoiPolygons, (currentFeature, featureIndex) => {
+            if (!currentFeature) return;
+
+            let finalFeature = currentFeature;
+            const clippedFeature = turf.intersect(currentFeature, cabaBoundary);
+            if (clippedFeature) {
+                finalFeature = clippedFeature;
+            }
+
+            const ptInfo = puntosDatos[featureIndex];
+            if (!ptInfo) return;
+
+            const colorFill = coloresPasteles[featureIndex % coloresPasteles.length];
+
+            const baseStyle = {
+                color: '#ffffff',
+                weight: 2,
+                fillColor: colorFill,
+                fillOpacity: 0.7,
+                opacity: 1
+            };
+
+            const polyLayer = L.geoJSON(finalFeature, {
+                style: baseStyle,
+                onEachFeature: function (feature, layer) {
+                    poligonosReferencia[ptInfo.id] = layer;
+
+                    layer.on({
+                        mouseover: function (e) {
+                            if (!document.getElementById('chkRegiones').checked) return;
+                            if (selectedLayer !== layer) {
+                                layer.setStyle({ weight: 3, color: '#3483fa', fillOpacity: 0.9 });
+                                layer.bringToFront();
+                                capaPuntos.bringToFront();
+                            }
+                        },
+                        mouseout: function (e) {
+                            if (!document.getElementById('chkRegiones').checked) return;
+                            const verBordes = document.getElementById('chkBordes').checked;
+                            if (selectedLayer !== layer) {
+                                layer.setStyle({ weight: verBordes ? 2 : 0, color: '#ffffff', fillOpacity: 0.7, opacity: verBordes ? 1 : 0 });
+                            }
+                        },
+                        click: function (e) {
+                            if (!document.getElementById('chkRegiones').checked) return;
+                            const verBordes = document.getElementById('chkBordes').checked;
+
+                            if (selectedLayer && selectedLayer !== layer) {
+                                selectedLayer.setStyle({ weight: verBordes ? 2 : 0, color: '#ffffff', fillOpacity: 0.7, opacity: verBordes ? 1 : 0 });
+                            }
+
+                            if (selectedLayer === layer) {
+                                selectedLayer = null;
+                                layer.setStyle({ weight: 3, color: '#3483fa', fillOpacity: 0.9 });
+                                document.getElementById('valDireccion').innerText = "-";
+                                document.getElementById('valPunto').innerText = "-";
+                                document.getElementById('valDistancia').innerText = "-";
+                            }
+                            else {
+                                selectedLayer = layer;
+                                layer.setStyle({ weight: 4, color: '#2968c8', fillOpacity: 0.9, opacity: 1 });
+                                layer.bringToFront();
+                                capaPuntos.bringToFront();
+
+                                document.getElementById('valDireccion').innerText = "Selección manual";
+                                document.getElementById('valPunto').innerText = ptInfo.nombre.split(',')[0];
+                                document.getElementById('valDistancia').innerText = "Región seleccionada";
+
+                                if (marcadorBusqueda) {
+                                    map.removeLayer(marcadorBusqueda);
+                                    marcadorBusqueda = null;
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+            polyLayer.addTo(capaPoligonos);
+        });
+
+        puntosDatos.forEach((punto, index) => {
+            const num = index + 1;
+            const icon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="marker-pin">${num}</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -12]
+            });
+            L.marker([punto.lat, punto.lng], { icon: icon })
+             .bindPopup(`<b>${punto.nombre.split(',')[0]}</b>`)
+             .addTo(capaPuntos);
+        });
+
+        function toggleVisibilidad() {
+            const verPuntos = document.getElementById('chkPuntos').checked;
+            const verRegiones = document.getElementById('chkRegiones').checked;
+            const verBordes = document.getElementById('chkBordes').checked;
+            const verNumeros = document.getElementById('chkNumeros').checked;
+
+            const container = document.getElementById('map-container');
+
+            if (verPuntos) container.classList.remove('hide-points');
+            else container.classList.add('hide-points');
+
+            if (verNumeros) container.classList.remove('hide-numbers');
+            else container.classList.add('hide-numbers');
+
+            Object.values(poligonosReferencia).forEach(layer => {
+                if (selectedLayer === layer) {
+                    layer.setStyle({ fillOpacity: verRegiones ? 0.9 : 0, opacity: verBordes ? 1 : 0, weight: verBordes ? 4 : 0, color: '#2968c8' });
+                } else {
+                    layer.setStyle({ fillOpacity: verRegiones ? 0.7 : 0, opacity: verBordes ? 1 : 0, weight: verBordes ? 2 : 0, color: '#ffffff' });
+                }
+            });
+        }
+
+        function limpiarMapa() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('valDireccion').innerText = '-';
+            document.getElementById('valPunto').innerText = '-';
+            document.getElementById('valDistancia').innerText = '-';
+
+            if (marcadorBusqueda) {
+                map.removeLayer(marcadorBusqueda);
+                marcadorBusqueda = null;
+            }
+
+            if (selectedLayer) {
+                const verBordes = document.getElementById('chkBordes').checked;
+                const verRegiones = document.getElementById('chkRegiones').checked;
+                selectedLayer.setStyle({ weight: verBordes ? 2 : 0, color: '#ffffff', fillOpacity: verRegiones ? 0.7 : 0, opacity: verBordes ? 1 : 0 });
+                selectedLayer = null;
+            }
+            map.setView([-34.6131, -58.4423], 12);
+        }
+
+        async function buscarUbicacion() {
+            const input = document.getElementById('searchInput').value.trim();
+            if (!input) return;
+
+            document.getElementById('valDireccion').innerText = "Buscando...";
+            const query = `${input}, Ciudad Autónoma de Buenos Aires, Argentina`;
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Language': 'es-ES,es;q=0.9',
+                        'User-Agent': 'MapaVoronoiCABA/1.0 (locuradelvallebuenosaires@gmail.com)'
+                    }
+                });
+
+                if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+                const data = await response.json();
+
+                if (data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+
+                    if (marcadorBusqueda) map.removeLayer(marcadorBusqueda);
+
+                    marcadorBusqueda = L.circleMarker([lat, lng], {
+                        radius: 7, fillColor: "#e74c3c", color: "#c0392b", weight: 2, fillOpacity: 1
+                    }).addTo(map).bindPopup("<b>Ubicación Encontrada</b>").openPopup();
+
+                    map.setView([lat, lng], 14);
+
+                    const ptBuscado = turf.point([lng, lat]);
+                    let puntoCercano = null;
+                    let distMin = Infinity;
+
+                    puntosDatos.forEach(p => {
+                        const ptRef = turf.point([p.lng, p.lat]);
+                        const d = turf.distance(ptBuscado, ptRef, { units: 'kilometers' });
+                        if (d < distMin) { distMin = d; puntoCercano = p; }
+                    });
+
+                    document.getElementById('valDireccion').innerText = data[0].display_name.split(',').slice(0, 2).join(', ');
+                    document.getElementById('valPunto').innerText = puntoCercano.nombre.split(',')[0];
+                    document.getElementById('valDistancia').innerText = `${distMin.toFixed(2)} km`;
+
+                    const verRegiones = document.getElementById('chkRegiones').checked;
+                    const verBordes = document.getElementById('chkBordes').checked;
+
+                    if (selectedLayer) {
+                        selectedLayer.setStyle({ weight: verBordes ? 2 : 0, color: '#ffffff', fillOpacity: verRegiones ? 0.7 : 0, opacity: verBordes ? 1 : 0 });
+                    }
+
+                    selectedLayer = poligonosReferencia[puntoCercano.id];
+                    if (selectedLayer && verRegiones) {
+                        selectedLayer.setStyle({ weight: 4, color: '#2968c8', fillOpacity: 0.9, opacity: 1 });
+                        selectedLayer.bringToFront();
+                        capaPuntos.bringToFront();
+                        if (marcadorBusqueda) marcadorBusqueda.bringToFront();
+                    }
+                } else {
+                    document.getElementById('valDireccion').innerText = "No encontrada";
+                    alert("No se encontró la dirección en Capital Federal.");
+                }
+            } catch (error) {
+                console.error(error);
+                document.getElementById('valDireccion').innerText = "Error de red";
+                alert("Error al buscar la dirección.");
+            }
+        }
+
+        document.getElementById('searchInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') buscarUbicacion();
+        });
+    </script>
+</body>
+</html>
