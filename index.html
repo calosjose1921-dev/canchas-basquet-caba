@@ -3,16 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Buscador de Ubicaciones – CABA</title>
+  <title>Buscador de Ubicaciones – CABA (24 puntos)</title>
 
-  <!-- Leaflet -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Turf.js -->
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 
   <style>
@@ -28,11 +22,18 @@
       color: #fff;
       padding: 12px 20px;
       font-weight: 600;
-    }
-    .layout {
       display: flex;
-      height: calc(100vh - 48px);
+      justify-content: space-between;
+      align-items: center;
     }
+    header .badge {
+      background: rgba(255,255,255,0.2);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .layout { display: flex; height: calc(100vh - 48px); }
     .sidebar {
       width: 340px;
       padding: 16px;
@@ -40,13 +41,8 @@
       background: #fff;
       border-right: 1px solid #e1e4ea;
     }
-    #map {
-      flex: 1;
-      min-height: 400px;
-    }
-    .field {
-      margin-bottom: 14px;
-    }
+    #map { flex: 1; min-height: 400px; }
+    .field { margin-bottom: 14px; }
     .field label {
       display: block;
       font-size: 13px;
@@ -71,10 +67,7 @@
       width: 100%;
     }
     button:hover { background: #1f4fa0; }
-    button.secondary {
-      background: #8e44ad;
-      margin-top: 10px;
-    }
+    button.secondary { background: #8e44ad; margin-top: 10px; }
     button.secondary:hover { background: #6f3290; }
     .result {
       margin-top: 18px;
@@ -107,11 +100,24 @@
       margin-top: 10px;
       line-height: 1.4;
     }
+    .counter {
+      margin-top: 12px;
+      padding: 10px;
+      background: #eef3fb;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #2968c8;
+      font-weight: 600;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
 
-<header>Buscador de Ubicaciones – CABA</header>
+<header>
+  <span>Buscador de Ubicaciones – CABA</span>
+  <span class="badge" id="badgeTotal">Puntos: 24 · Regiones: 24</span>
+</header>
 
 <div class="layout">
   <aside class="sidebar">
@@ -135,15 +141,13 @@
 
     <div class="checks">
       <label><input type="checkbox" id="chkRegiones" checked onchange="refrescarVista()" /> Ver regiones</label>
-      <label><input type="checkbox" id="chkBordes" checked onchange="refrescarVista()" /> Ver bordes</label>
+      <label><input type="checkbox" id="chkBordes"   checked onchange="refrescarVista()" /> Ver bordes</label>
     </div>
 
-    <button class="secondary" onclick="agregarPuntosVoronoi()">
-      ➕ Agregar puntos y recalcular Voronoi
-    </button>
+    <div class="counter" id="contadorVoronoi">24 puntos · 24 regiones Voronoi</div>
 
     <div class="hint">
-      Agrega <b>Villa 31 (Manzana 33 Casa 14)</b> y <b>Gavilán 1245</b> y recalcula todo el diagrama de Voronoi sobre CABA.
+      Se muestran las 24 regiones de Voronoi (una por punto). Buscá una dirección para resaltar la región correspondiente.
     </div>
   </aside>
 
@@ -151,11 +155,14 @@
 </div>
 
 <script>
-
-
+/* ============================================================
+   CONFIGURACIÓN
+   ============================================================ */
 const PROXY_URL = 'https://nominatim-proxy.onrender.com';
 
-
+/* ============================================================
+   MAPA Y CAPAS
+   ============================================================ */
 const map = L.map('map').setView([-34.6158, -58.4333], 12);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -164,68 +171,64 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 const capaVoronoi = L.layerGroup().addTo(map);
-
-const capaPuntos = L.layerGroup().addTo(map);
+const capaPuntos  = L.layerGroup().addTo(map);
 
 let marcadorBusqueda = null;
+let limiteCABA       = null;
+let selectedLayer    = null;
+let ultimoPuntoId    = null;
 
-let limiteCABA = null;
-
-let selectedLayer = null;
-let ultimoPuntoId = null;
-
-
- */
+/* ============================================================
+   24 PUNTOS DE REFERENCIA
+   ------------------------------------------------------------
+   → Los primeros 22 son barrios base de CABA (reemplazalos por
+     tus puntos reales si tenés otros).
+   → Los últimos 2 son las direcciones nuevas.
+   ============================================================ */
 const puntosDatos = [
-  { id: 'p1', nombre: 'Retiro',            lat: -34.5895, lng: -58.3745 },
-  { id: 'p2', nombre: 'Recoleta',          lat: -34.5880, lng: -58.3970 },
-  { id: 'p3', nombre: 'Palermo',           lat: -34.5780, lng: -58.4250 },
-  { id: 'p4', nombre: 'Belgrano',          lat: -34.5620, lng: -58.4570 },
-  { id: 'p5', nombre: 'Caballito',         lat: -34.6200, lng: -58.4450 },
-  { id: 'p6', nombre: 'Flores',            lat: -34.6300, lng: -58.4650 },
-  { id: 'p7', nombre: 'Villa Lugano',      lat: -34.6700, lng: -58.4800 },
-  { id: 'p8', nombre: 'La Boca',           lat: -34.6350, lng: -58.3620 },
-  { id: 'p9', nombre: 'San Telmo',         lat: -34.6200, lng: -58.3730 },
-  { id: 'p10', nombre: 'Once',             lat: -34.6080, lng: -58.4100 }
+  { id: 'p01', nombre: 'Retiro',                lat: -34.5895, lng: -58.3745 },
+  { id: 'p02', nombre: 'Recoleta',              lat: -34.5880, lng: -58.3970 },
+  { id: 'p03', nombre: 'Palermo',               lat: -34.5780, lng: -58.4250 },
+  { id: 'p04', nombre: 'Belgrano',              lat: -34.5620, lng: -58.4570 },
+  { id: 'p05', nombre: 'Núñez',                 lat: -34.5450, lng: -58.4630 },
+  { id: 'p06', nombre: 'Colegiales',            lat: -34.5730, lng: -58.4480 },
+  { id: 'p07', nombre: 'Villa Urquiza',         lat: -34.5730, lng: -58.4870 },
+  { id: 'p08', nombre: 'Villa Devoto',          lat: -34.6030, lng: -58.5140 },
+  { id: 'p09', nombre: 'Villa del Parque',      lat: -34.6020, lng: -58.4930 },
+  { id: 'p10', nombre: 'Agronomía',             lat: -34.5960, lng: -58.4900 },
+  { id: 'p11', nombre: 'Caballito',             lat: -34.6200, lng: -58.4450 },
+  { id: 'p12', nombre: 'Villa Crespo',          lat: -34.5980, lng: -58.4420 },
+  { id: 'p13', nombre: 'Almagro',               lat: -34.6080, lng: -58.4220 },
+  { id: 'p14', nombre: 'Balvanera (Once)',      lat: -34.6080, lng: -58.4100 },
+  { id: 'p15', nombre: 'San Nicolás',           lat: -34.6050, lng: -58.3880 },
+  { id: 'p16', nombre: 'Monserrat',             lat: -34.6120, lng: -58.3830 },
+  { id: 'p17', nombre: 'San Telmo',             lat: -34.6200, lng: -58.3730 },
+  { id: 'p18', nombre: 'La Boca',               lat: -34.6350, lng: -58.3620 },
+  { id: 'p19', nombre: 'Barracas',              lat: -34.6400, lng: -58.3800 },
+  { id: 'p20', nombre: 'Parque Patricios',      lat: -34.6400, lng: -58.4050 },
+  { id: 'p21', nombre: 'Nueva Pompeya',         lat: -34.6500, lng: -58.4200 },
+  { id: 'p22', nombre: 'Flores',                lat: -34.6300, lng: -58.4650 },
+  { id: 'n01', nombre: 'Villa 31 – Manzana 33 Casa 14', lat: -34.58150, lng: -58.37550 },
+  { id: 'n02', nombre: 'Gavilán 1245',         lat: -34.60150, lng: -58.44050 }
 ];
 
 const poligonosReferencia = {};
 
 
-
-const NUEVAS_DIRECCIONES = [
-  {
-    dir: 'Manzana 33 Casa 14, Av. Pres. Ramón Villa 31, Ciudad Autónoma de Buenos Aires',
-    nombre: 'Villa 31 – Manzana 33 Casa 14',
-    fallback: { lat: -34.58150, lng: -58.37550 }
-  },
-  {
-    dir: 'Gavilán 1245, C1416 Ciudad Autónoma de Buenos Aires',
-    nombre: 'Gavilán 1245',
-    fallback: { lat: -34.60150, lng: -58.44050 }
-  }
-];
-
-
-
 async function geocodificarDireccion(dir) {
   const q = /argentina|caba|aut[óo]noma/i.test(dir)
-    ? dir
-    : `${dir}, CABA, Argentina`;
+    ? dir : `${dir}, CABA, Argentina`;
 
   const res = await fetch(`${PROXY_URL}/geocode?q=${encodeURIComponent(q)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
   const data = await res.json();
   if (!Array.isArray(data) || data.length === 0) throw new Error('sin resultados');
-
   return {
     lat: parseFloat(data[0].lat),
     lng: parseFloat(data[0].lon),
     display: data[0].display_name
   };
 }
-
 
 
 async function buscarUbicacion() {
@@ -236,8 +239,7 @@ async function buscarUbicacion() {
   document.getElementById('valPunto').innerText = '-';
   document.getElementById('valDistancia').innerText = '-';
 
-  const query = input + ', CABA, Argentina';
-  const url = `${PROXY_URL}/geocode?q=${encodeURIComponent(query)}`;
+  const url = `${PROXY_URL}/geocode?q=${encodeURIComponent(input + ', CABA, Argentina')}`;
 
   try {
     const response = await fetch(url);
@@ -251,11 +253,8 @@ async function buscarUbicacion() {
       if (marcadorBusqueda) map.removeLayer(marcadorBusqueda);
 
       marcadorBusqueda = L.circleMarker([lat, lng], {
-        radius: 7,
-        fillColor: '#e74c3c',
-        color: '#c0392b',
-        weight: 2,
-        fillOpacity: 1
+        radius: 7, fillColor: '#e74c3c', color: '#c0392b',
+        weight: 2, fillOpacity: 1
       }).addTo(map).bindPopup('<b>Ubicación Encontrada</b>').openPopup();
 
       map.setView([lat, lng], 14);
@@ -270,20 +269,14 @@ async function buscarUbicacion() {
         if (d < distMin) { distMin = d; puntoCercano = p; }
       });
 
-      if (!puntoCercano) {
-        document.getElementById('valDireccion').innerText = 'Sin puntos de referencia';
-        return;
-      }
-
       document.getElementById('valDireccion').innerText =
         data[0].display_name.split(',').slice(0, 2).join(', ');
-      document.getElementById('valPunto').innerText = puntoCercano.nombre.split(',')[0];
+      document.getElementById('valPunto').innerText = puntoCercano.nombre;
       document.getElementById('valDistancia').innerText = `${distMin.toFixed(2)} km`;
 
-      // Guardamos el id para reaplicar selección después de recalcular
       ultimoPuntoId = puntoCercano.id;
-
       aplicarSeleccion(puntoCercano.id);
+
     } else {
       document.getElementById('valDireccion').innerText = 'No encontrada';
       alert('No se encontró la dirección en Capital Federal.');
@@ -296,12 +289,10 @@ async function buscarUbicacion() {
 }
 
 
-
 function aplicarSeleccion(puntoId) {
   const verRegiones = document.getElementById('chkRegiones').checked;
   const verBordes   = document.getElementById('chkBordes').checked;
 
-  // Restaurar estilo del anterior
   if (selectedLayer) {
     selectedLayer.setStyle({
       weight: verBordes ? 2 : 0,
@@ -324,10 +315,9 @@ function aplicarSeleccion(puntoId) {
 }
 
 function refrescarVista() {
-  if (ultimoPuntoId) {
+  if (ultimoPuntoId && poligonosReferencia[ultimoPuntoId]) {
     aplicarSeleccion(ultimoPuntoId);
   } else {
-    // Solo actualizar visibilidad general
     const verRegiones = document.getElementById('chkRegiones').checked;
     const verBordes   = document.getElementById('chkBordes').checked;
     Object.values(poligonosReferencia).forEach(layer => {
@@ -341,18 +331,20 @@ function refrescarVista() {
 }
 
 
-
 function intersectar(a, b) {
   try {
-    return turf.intersect(turf.featureCollection([a, b])); 
+    return turf.intersect(turf.featureCollection([a, b])); // Turf v7
   } catch (e) {
-    return turf.intersect(a, b);                            
+    return turf.intersect(a, b);                            // Turf v6
   }
 }
 
-const PALETA = ['#2968c8', '#e67e22', '#16a085', '#8e44ad',
-                '#c0392b', '#2c3e50', '#d35400', '#27ae60',
-                '#2980b9', '#f39c12'];
+const PALETA = [
+  '#2968c8','#e67e22','#16a085','#8e44ad','#c0392b','#2c3e50',
+  '#d35400','#27ae60','#2980b9','#f39c12','#7f8c8d','#c2185b',
+  '#00838f','#5d4037','#455a64','#6a1b9a','#ef6c00','#00695c',
+  '#283593','#ad1457','#4e342e','#33691e','#0277bd','#bf360c'
+];
 
 function colorDePunto(id) {
   let h = 0;
@@ -368,7 +360,6 @@ function recalcularVoronoi() {
   }
   if (puntosDatos.length < 2) return;
 
-  // 1. Borrar polígonos anteriores
   Object.keys(poligonosReferencia).forEach(k => {
     const capa = poligonosReferencia[k];
     if (capa && capa.remove) capa.remove();
@@ -376,7 +367,6 @@ function recalcularVoronoi() {
   });
   selectedLayer = null;
 
-  // 2. FeatureCollection de puntos
   const puntosFC = turf.featureCollection(
     puntosDatos.map(p => turf.point([p.lng, p.lat], { id: p.id, nombre: p.nombre }))
   );
@@ -390,6 +380,8 @@ function recalcularVoronoi() {
   }
 
   // 4. Recortar cada celda contra CABA
+  let creadas = 0;
+
   voronoi.features.forEach(celda => {
     if (!celda) return;
 
@@ -402,7 +394,7 @@ function recalcularVoronoi() {
     }
     if (!recorte) return;
 
-    // ¿A qué punto pertenece?
+    // ¿A qué punto pertenece esta celda?
     let dueno = puntosDatos.find(p =>
       turf.booleanPointInPolygon(turf.point([p.lng, p.lat]), recorte)
     );
@@ -429,9 +421,14 @@ function recalcularVoronoi() {
     }).addTo(capaVoronoi);
 
     poligonosReferencia[dueno.id] = layer;
+    creadas++;
   });
 
-  // 5. Restaurar selección si había una búsqueda activa
+  console.log(`Voronoi generado: ${puntosDatos.length} puntos → ${creadas} regiones.`);
+
+  actualizarContador(creadas);
+
+  // 5. Restaurar selección o mostrar todo
   if (ultimoPuntoId && poligonosReferencia[ultimoPuntoId]) {
     aplicarSeleccion(ultimoPuntoId);
   } else {
@@ -439,89 +436,22 @@ function recalcularVoronoi() {
   }
 }
 
-
-
-async function agregarPuntosVoronoi(lista = NUEVAS_DIRECCIONES) {
-  const nuevos = [];
-
-  for (const item of lista) {
-    // Evitar duplicados por nombre
-    if (puntosDatos.some(p => p.nombre === item.nombre)) {
-      console.info(`Ya existe: ${item.nombre}`);
-      continue;
-    }
-
-    let coords = null;
-    let fuente = 'Nominatim';
-
-    try {
-      coords = await geocodificarDireccion(item.dir);
-    } catch (err) {
-      console.warn(`Geocoding falló para "${item.dir}":`, err.message);
-      if (item.fallback) {
-        coords = item.fallback;
-        fuente = 'coordenada aproximada';
-      }
-    }
-    if (!coords) {
-      console.error(`Se omite "${item.dir}" (sin coordenadas).`);
-      continue;
-    }
-
-    const punto = {
-      id: `nuevo-${puntosDatos.length}-${Date.now()}`,
-      nombre: item.nombre,
-      lat: coords.lat,
-      lng: coords.lng,
-      fuente
-    };
-
-    puntosDatos.push(punto);
-    nuevos.push(punto);
-
-    L.circleMarker([punto.lat, punto.lng], {
-      radius: 7,
-      fillColor: '#8e44ad',
-      color: '#ffffff',
-      weight: 2,
-      fillOpacity: 1
-    })
-      .addTo(capaPuntos)
-      .bindPopup(
-        `<b>${punto.nombre}</b><br>` +
-        `${punto.lat.toFixed(5)}, ${punto.lng.toFixed(5)}<br>` +
-        `<i>${fuente}</i>`
-      );
-
-    console.log(`✔ ${punto.nombre} → ${punto.lat}, ${punto.lng} (${fuente})`);
-
-    // Pausa para respetar rate limit de Nominatim
-    await new Promise(r => setTimeout(r, 1100));
-  }
-
-  if (nuevos.length === 0) {
-    alert('No se agregó ningún punto nuevo.');
-    return;
-  }
-
-  recalcularVoronoi();
-
-  if (capaPuntos.getBounds().isValid()) {
-    map.fitBounds(capaPuntos.getBounds(), { padding: [40, 40] });
-  }
-
-  alert(`Se agregaron ${nuevos.length} punto(s) y se recalculó el Voronoi.`);
+function actualizarContador(regiones) {
+  const txt = `${puntosDatos.length} puntos · ${regiones} regiones Voronoi`;
+  document.getElementById('contadorVoronoi').innerText = txt;
+  document.getElementById('badgeTotal').innerText =
+    `Puntos: ${puntosDatos.length} · Regiones: ${regiones}`;
 }
 
 
-
-function dibujarPuntosIniciales() {
+function dibujarPuntos() {
   capaPuntos.clearLayers();
 
   puntosDatos.forEach(p => {
+    const esNuevo = p.id.startsWith('n');
     L.circleMarker([p.lat, p.lng], {
-      radius: 6,
-      fillColor: colorDePunto(p.id),
+      radius: esNuevo ? 7 : 6,
+      fillColor: esNuevo ? '#8e44ad' : colorDePunto(p.id),
       color: '#ffffff',
       weight: 2,
       fillOpacity: 1
@@ -529,16 +459,14 @@ function dibujarPuntosIniciales() {
       .addTo(capaPuntos)
       .bindPopup(
         `<b>${p.nombre}</b><br>` +
-        `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`
+        `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` +
+        (esNuevo ? '<br><i>Punto nuevo</i>' : '')
       );
   });
 }
 
 
-
 async function cargarLimiteCABA() {
-  // GeoJSON simplificado de la Ciudad de Buenos Aires.
-  // Si tenés tu propio archivo, reemplazá esta URL.
   const url = 'https://raw.githubusercontent.com/martgnz/buenos-aires-geojson/master/barrios.geojson';
 
   try {
@@ -546,37 +474,26 @@ async function cargarLimiteCABA() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    // Unificar todos los barrios en un solo polígono (MultiPolygon)
     const features = data.features || [];
     let union = null;
 
     features.forEach(f => {
       try {
         union = union ? turf.union(union, f) : f;
-      } catch (e) {
-        // Ignorar geometrías problemáticas
-      }
+      } catch (e) { /* ignorar */ }
     });
 
     if (!union) throw new Error('No se pudo unir barrios.');
-
     limiteCABA = union;
 
-    // Dibujar límite suave
     L.geoJSON(limiteCABA, {
-      style: {
-        color: '#333',
-        weight: 1.5,
-        fill: false,
-        opacity: 0.6
-      },
+      style: { color: '#333', weight: 1.5, fill: false, opacity: 0.6 },
       interactive: false
     }).addTo(map);
 
     map.fitBounds(L.geoJSON(limiteCABA).getBounds(), { padding: [20, 20] });
 
-    // Ahora sí: dibujar puntos y calcular Voronoi
-    dibujarPuntosIniciales();
+    dibujarPuntos();
     recalcularVoronoi();
 
   } catch (err) {
@@ -585,10 +502,7 @@ async function cargarLimiteCABA() {
   }
 }
 
-// Arrancar cuando el DOM esté listo
-window.addEventListener('load', () => {
-  cargarLimiteCABA();
-});
+window.addEventListener('load', cargarLimiteCABA);
 </script>
 
 </body>
