@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canchas de Basquet CABA</title>
 
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
@@ -20,7 +19,6 @@
             overflow: hidden;
         }
 
-        /* Sidebar UI */
         #sidebar {
             width: 360px;
             min-width: 360px;
@@ -181,7 +179,6 @@
             word-wrap: break-word;
         }
 
-        /* Map UI */
         #map-container {
             flex-grow: 1;
             position: relative;
@@ -193,7 +190,6 @@
             z-index: 1;
         }
 
-        /* Marker Styles */
         .marker-pin {
             width: 24px;
             height: 24px;
@@ -293,13 +289,16 @@
         <div id="map"></div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Turf.js -->
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
     <script>
-        // Los nombres han sido modificados EXACTAMENTE a su equivalente físico y geocodificable de CABA
+        // =================================================================
+        // CORRECCIÓN OSM: Esto evita el error 403 "Access blocked"
+        // Es la solución oficial recomendada por la OSM Foundation.
+        // =================================================================
+        L.TileLayer.prototype.options.referrerPolicy = 'strict-origin-when-cross-origin';
+
         const puntosDatos = [
             { id: 1, nombre: "Murguiondo 3945, CABA", lat: -34.6811, lng: -58.4735 },
             { id: 2, nombre: "Avenida Avellaneda 3800, CABA", lat: -34.6293, lng: -58.4815 },
@@ -345,44 +344,15 @@
 
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // =====================================================================
-        // TILE LAYER: CARTO Positron (evita el bloqueo 403 de OpenStreetMap).
-        // Se cargan 3 proveedores en cascada por si alguno falla.
-        // =====================================================================
-        const proveedoresTiles = [
-            {
-                url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                opts: { subdomains: 'abcd', maxZoom: 20 }
-            },
-            {
-                url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                opts: { subdomains: 'abcd', maxZoom: 20 }
-            },
-            {
-                url: 'https://tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-                opts: { subdomains: 'abc', maxZoom: 19 }
-            }
-        ];
-
-        let proveedorActual = 0;
-
-        function cargarTileLayer() {
-            const p = proveedoresTiles[proveedorActual];
-            const layer = L.tileLayer(p.url, {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                opacity: 0.9,
-                ...p.opts
-            }).addTo(map);
-
-            layer.on('tileerror', function () {
-                console.warn('Tile provider ' + proveedorActual + ' falló. Probando el siguiente...');
-                map.removeLayer(layer);
-                proveedorActual = (proveedorActual + 1) % proveedoresTiles.length;
-                cargarTileLayer();
-            });
-        }
-
-        cargarTileLayer();
+        // =================================================================
+        // TILE LAYER: OpenStreetMap estándar (sin API key)
+        // El referrerPolicy configurado arriba evita el error 403.
+        // =================================================================
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+            opacity: 0.85
+        }).addTo(map);
 
         const capaPoligonos = L.layerGroup().addTo(map);
         const capaPuntos = L.layerGroup().addTo(map);
@@ -390,7 +360,6 @@
         let marcadorBusqueda = null;
         let selectedLayer = null;
 
-        // Borde geopolítico de CABA de alta precisión
         const cabaBoundary = turf.polygon([[
             [-58.4725,-34.5275], [-58.4630,-34.5320], [-58.4480,-34.5400], [-58.4250,-34.5530],
             [-58.3970,-34.5700], [-58.3780,-34.5820], [-58.3650,-34.5920], [-58.3550,-34.6050],
@@ -543,28 +512,63 @@
             map.setView([-34.6131, -58.4423], 12);
         }
 
+        // =================================================================
+        // BÚSQUEDA CORREGIDA
+        // - Cache de resultados para no repetir consultas
+        // - Control de rate limit (mínimo 1 segundo entre requests)
+        // - Header Referer explícito
+        // =================================================================
+        const geocodeCache = new Map();
+        let ultimaPeticion = 0;
+        const INTERVALO_MINIMO = 1100; // 1.1 segundos (margen sobre el límite de 1s)
+
         async function buscarUbicacion() {
             const input = document.getElementById('searchInput').value.trim();
             if (!input) return;
 
             document.getElementById('valDireccion').innerText = "Buscando...";
-            const query = `${input}, Ciudad Autónoma de Buenos Aires, Argentina`;
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+            document.getElementById('valPunto').innerText = "-";
+            document.getElementById('valDistancia').innerText = "-";
+
+            // Rate limiting: esperar si es necesario
+            const ahora = Date.now();
+            const tiempoEspera = Math.max(0, INTERVALO_MINIMO - (ahora - ultimaPeticion));
+            if (tiempoEspera > 0) {
+                await new Promise(resolve => setTimeout(resolve, tiempoEspera));
+            }
 
             try {
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Accept-Language': 'es-ES,es;q=0.9',
-                        'User-Agent': 'MapaVoronoiCABA/1.0 (locuradelvallebuenosaires@gmail.com)'
+                // Verificar cache primero
+                let data;
+                if (geocodeCache.has(input.toLowerCase())) {
+                    data = geocodeCache.get(input.toLowerCase());
+                } else {
+                    const query = `${input}, Ciudad Autónoma de Buenos Aires, Argentina`;
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`;
+
+                    ultimaPeticion = Date.now();
+
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Accept-Language': 'es-ES,es;q=0.9',
+                            'Referer': window.location.href
+                        }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            throw new Error('RATE_LIMIT');
+                        }
+                        throw new Error(`Error HTTP: ${response.status}`);
                     }
-                });
 
-                if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-                const data = await response.json();
+                    data = await response.json();
+                    geocodeCache.set(input.toLowerCase(), data);
+                }
 
-                if (data.length > 0) {
+                if (data && data.length > 0) {
                     const lat = parseFloat(data[0].lat);
                     const lng = parseFloat(data[0].lon);
 
@@ -606,12 +610,18 @@
                     }
                 } else {
                     document.getElementById('valDireccion').innerText = "No encontrada";
-                    alert("No se encontró la dirección en Capital Federal.");
+                    alert("No se encontró la dirección en Capital Federal. Intentá con otro formato (ej: 'Viamonte 2040' o 'Av. Santa Fe 1500').");
                 }
             } catch (error) {
-                console.error(error);
-                document.getElementById('valDireccion').innerText = "Error de red";
-                alert("Error al buscar la dirección.");
+                console.error('Error en búsqueda:', error);
+
+                if (error.message === 'RATE_LIMIT') {
+                    document.getElementById('valDireccion').innerText = "Límite alcanzado";
+                    alert("El servicio de búsqueda está temporalmente saturado. Esperá unos segundos y volvé a intentar.");
+                } else {
+                    document.getElementById('valDireccion').innerText = "Error de red";
+                    alert("Error al buscar la dirección. Revisá tu conexión a internet e intentá de nuevo.");
+                }
             }
         }
 
