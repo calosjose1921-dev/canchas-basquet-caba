@@ -1,509 +1,595 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Buscador de Ubicaciones – CABA (24 puntos)</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canchas de Basquet CABA</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+            background-color: #f4f6f7;
+            overflow: hidden;
+        }
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+        /* Sidebar UI */
+        #sidebar {
+            width: 360px;
+            min-width: 360px;
+            background-color: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
 
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: #f5f6fa;
-      color: #222;
-    }
-    header {
-      background: #2968c8;
-      color: #fff;
-      padding: 12px 20px;
-      font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    header .badge {
-      background: rgba(255,255,255,0.2);
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .layout { display: flex; height: calc(100vh - 48px); }
-    .sidebar {
-      width: 340px;
-      padding: 16px;
-      overflow-y: auto;
-      background: #fff;
-      border-right: 1px solid #e1e4ea;
-    }
-    #map { flex: 1; min-height: 400px; }
-    .field { margin-bottom: 14px; }
-    .field label {
-      display: block;
-      font-size: 13px;
-      color: #555;
-      margin-bottom: 4px;
-    }
-    .field input[type="text"] {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #cbd2dc;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-    button {
-      background: #2968c8;
-      color: #fff;
-      border: none;
-      padding: 9px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      width: 100%;
-    }
-    button:hover { background: #1f4fa0; }
-    button.secondary { background: #8e44ad; margin-top: 10px; }
-    button.secondary:hover { background: #6f3290; }
-    .result {
-      margin-top: 18px;
-      padding: 12px;
-      background: #f7f9fc;
-      border: 1px solid #e1e4ea;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    .result .row {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 0;
-      border-bottom: 1px dashed #e1e4ea;
-    }
-    .result .row:last-child { border-bottom: none; }
-    .result .k { color: #666; }
-    .result .v { font-weight: 600; text-align: right; max-width: 60%; }
-    .checks {
-      margin-top: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 14px;
-    }
-    .checks label { display: flex; align-items: center; gap: 6px; }
-    .hint {
-      font-size: 12px;
-      color: #777;
-      margin-top: 10px;
-      line-height: 1.4;
-    }
-    .counter {
-      margin-top: 12px;
-      padding: 10px;
-      background: #eef3fb;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #2968c8;
-      font-weight: 600;
-      text-align: center;
-    }
-  </style>
+        .header-title {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .header-title svg {
+            width: 28px;
+            height: 28px;
+            fill: #3483fa;
+            flex-shrink: 0;
+        }
+
+        .header-title h1 {
+            font-size: 1.25rem;
+            margin: 0 0 5px 0;
+            color: #1a1a1a;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .header-subtitle {
+            font-size: 0.8rem;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .panel {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #fff;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .panel-title svg {
+            width: 18px;
+            height: 18px;
+            fill: #3483fa;
+        }
+
+        .search-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .search-container input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-container input:focus {
+            border-color: #3483fa;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-group button {
+            flex: 1;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 0;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: background-color 0.2s;
+            color: white;
+            text-align: center;
+        }
+        
+        .btn-search { background-color: #3483fa; }
+        .btn-search:hover { background-color: #2968c8; }
+
+        .btn-clear { background-color: #e74c3c; }
+        .btn-clear:hover { background-color: #c0392b; }
+
+        .hint {
+            font-size: 0.75rem;
+            color: #71717a;
+            margin-top: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: #3f3f46;
+            cursor: pointer;
+        }
+
+        .checkbox-label input {
+            width: 16px;
+            height: 16px;
+            accent-color: #3483fa;
+            cursor: pointer;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-label { color: #52525b; }
+        .info-value {
+            font-weight: 500;
+            color: #18181b;
+            text-align: right;
+            max-width: 65%;
+            word-wrap: break-word;
+        }
+
+        /* Map UI */
+        #map-container {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Marker Styles */
+        .marker-pin {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 3px solid #3483fa;
+            color: #3483fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 11px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        
+        .marker-pin:hover { transform: scale(1.15); }
+        .hide-numbers .marker-pin { color: transparent; }
+        .hide-points .leaflet-marker-icon { display: none; }
+
+        /* Estilo especial para los 2 puntos nuevos */
+        .marker-pin.nuevo {
+            border-color: #8e44ad;
+            color: #8e44ad;
+        }
+    </style>
 </head>
 <body>
 
-<header>
-  <span>Buscador de Ubicaciones – CABA</span>
-  <span class="badge" id="badgeTotal">Puntos: 24 · Regiones: 24</span>
-</header>
+    <aside id="sidebar">
+        <div class="header-title">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            <div>
+                <h1>Canchas de Basquet</h1>
+                <div class="header-subtitle">
+                    Capital Federal · Buenos Aires<br>
+                    Análisis de regiones de proximidad a partir de puntos de referencia.
+                </div>
+            </div>
+        </div>
 
-<div class="layout">
-  <aside class="sidebar">
-    <div class="field">
-      <label for="searchInput">Dirección</label>
-      <input
-        type="text"
-        id="searchInput"
-        placeholder="Ej: Av. Corrientes 1000"
-        onkeydown="if(event.key==='Enter') buscarUbicacion()"
-      />
+        <div class="panel">
+            <div class="panel-title">
+                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                Buscar dirección en CABA
+            </div>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Ej.: Av. Santa Fe 1500, CABA">
+                <div class="btn-group">
+                    <button class="btn-search" onclick="buscarUbicacion()">Buscar</button>
+                    <button class="btn-clear" onclick="limpiarMapa()">Limpiar</button>
+                </div>
+            </div>
+            <div class="hint">La búsqueda se limita únicamente a CABA.</div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">
+                <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                Visualización
+            </div>
+            <div class="checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkPuntos" checked onchange="toggleVisibilidad()"> Mostrar puntos (24)
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkRegiones" checked onchange="toggleVisibilidad()"> Mostrar regiones de Voronoi
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkBordes" checked onchange="toggleVisibilidad()"> Mostrar bordes
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkNumeros" checked onchange="toggleVisibilidad()"> Mostrar números
+                </label>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">
+                <svg viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                Información
+            </div>
+            <div class="info-row">
+                <span class="info-label">Puntos mapeados:</span>
+                <span class="info-value">24 / 24</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Dirección buscada:</span>
+                <span class="info-value" id="valDireccion">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Punto más cercano:</span>
+                <span class="info-value" id="valPunto">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Distancia lineal:</span>
+                <span class="info-value" id="valDistancia">-</span>
+            </div>
+        </div>
+    </aside>
+
+    <div id="map-container">
+        <div id="map"></div>
     </div>
 
-    <button onclick="buscarUbicacion()">🔍 Buscar</button>
-
-    <div class="result">
-      <div class="row"><span class="k">Dirección</span><span class="v" id="valDireccion">-</span></div>
-      <div class="row"><span class="k">Punto cercano</span><span class="v" id="valPunto">-</span></div>
-      <div class="row"><span class="k">Distancia</span><span class="v" id="valDistancia">-</span></div>
-    </div>
-
-    <div class="checks">
-      <label><input type="checkbox" id="chkRegiones" checked onchange="refrescarVista()" /> Ver regiones</label>
-      <label><input type="checkbox" id="chkBordes"   checked onchange="refrescarVista()" /> Ver bordes</label>
-    </div>
-
-    <div class="counter" id="contadorVoronoi">24 puntos · 24 regiones Voronoi</div>
-
-    <div class="hint">
-      Se muestran las 24 regiones de Voronoi (una por punto). Buscá una dirección para resaltar la región correspondiente.
-    </div>
-  </aside>
-
-  <div id="map"></div>
-</div>
-
-<script>
-/* ============================================================
-   CONFIGURACIÓN
-   ============================================================ */
-const PROXY_URL = 'https://nominatim-proxy.onrender.com';
-
-/* ============================================================
-   MAPA Y CAPAS
-   ============================================================ */
-const map = L.map('map').setView([-34.6158, -58.4333], 12);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap'
-}).addTo(map);
-
-const capaVoronoi = L.layerGroup().addTo(map);
-const capaPuntos  = L.layerGroup().addTo(map);
-
-let marcadorBusqueda = null;
-let limiteCABA       = null;
-let selectedLayer    = null;
-let ultimoPuntoId    = null;
-
-/* ============================================================
-   24 PUNTOS DE REFERENCIA
-   ------------------------------------------------------------
-   → Los primeros 22 son barrios base de CABA (reemplazalos por
-     tus puntos reales si tenés otros).
-   → Los últimos 2 son las direcciones nuevas.
-   ============================================================ */
-const puntosDatos = [
-  { id: 'p01', nombre: 'Retiro',                lat: -34.5895, lng: -58.3745 },
-  { id: 'p02', nombre: 'Recoleta',              lat: -34.5880, lng: -58.3970 },
-  { id: 'p03', nombre: 'Palermo',               lat: -34.5780, lng: -58.4250 },
-  { id: 'p04', nombre: 'Belgrano',              lat: -34.5620, lng: -58.4570 },
-  { id: 'p05', nombre: 'Núñez',                 lat: -34.5450, lng: -58.4630 },
-  { id: 'p06', nombre: 'Colegiales',            lat: -34.5730, lng: -58.4480 },
-  { id: 'p07', nombre: 'Villa Urquiza',         lat: -34.5730, lng: -58.4870 },
-  { id: 'p08', nombre: 'Villa Devoto',          lat: -34.6030, lng: -58.5140 },
-  { id: 'p09', nombre: 'Villa del Parque',      lat: -34.6020, lng: -58.4930 },
-  { id: 'p10', nombre: 'Agronomía',             lat: -34.5960, lng: -58.4900 },
-  { id: 'p11', nombre: 'Caballito',             lat: -34.6200, lng: -58.4450 },
-  { id: 'p12', nombre: 'Villa Crespo',          lat: -34.5980, lng: -58.4420 },
-  { id: 'p13', nombre: 'Almagro',               lat: -34.6080, lng: -58.4220 },
-  { id: 'p14', nombre: 'Balvanera (Once)',      lat: -34.6080, lng: -58.4100 },
-  { id: 'p15', nombre: 'San Nicolás',           lat: -34.6050, lng: -58.3880 },
-  { id: 'p16', nombre: 'Monserrat',             lat: -34.6120, lng: -58.3830 },
-  { id: 'p17', nombre: 'San Telmo',             lat: -34.6200, lng: -58.3730 },
-  { id: 'p18', nombre: 'La Boca',               lat: -34.6350, lng: -58.3620 },
-  { id: 'p19', nombre: 'Barracas',              lat: -34.6400, lng: -58.3800 },
-  { id: 'p20', nombre: 'Parque Patricios',      lat: -34.6400, lng: -58.4050 },
-  { id: 'p21', nombre: 'Nueva Pompeya',         lat: -34.6500, lng: -58.4200 },
-  { id: 'p22', nombre: 'Flores',                lat: -34.6300, lng: -58.4650 },
-  { id: 'n01', nombre: 'Villa 31 – Manzana 33 Casa 14', lat: -34.58150, lng: -58.37550 },
-  { id: 'n02', nombre: 'Gavilán 1245',         lat: -34.60150, lng: -58.44050 }
-];
-
-const poligonosReferencia = {};
-
-
-async function geocodificarDireccion(dir) {
-  const q = /argentina|caba|aut[óo]noma/i.test(dir)
-    ? dir : `${dir}, CABA, Argentina`;
-
-  const res = await fetch(`${PROXY_URL}/geocode?q=${encodeURIComponent(q)}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data) || data.length === 0) throw new Error('sin resultados');
-  return {
-    lat: parseFloat(data[0].lat),
-    lng: parseFloat(data[0].lon),
-    display: data[0].display_name
-  };
-}
-
-
-async function buscarUbicacion() {
-  const input = document.getElementById('searchInput').value.trim();
-  if (!input) return;
-
-  document.getElementById('valDireccion').innerText = 'Buscando...';
-  document.getElementById('valPunto').innerText = '-';
-  document.getElementById('valDistancia').innerText = '-';
-
-  const url = `${PROXY_URL}/geocode?q=${encodeURIComponent(input + ', CABA, Argentina')}`;
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-    const data = await response.json();
-
-    if (data && data.length > 0) {
-      const lat = parseFloat(data[0].lat);
-      const lng = parseFloat(data[0].lon);
-
-      if (marcadorBusqueda) map.removeLayer(marcadorBusqueda);
-
-      marcadorBusqueda = L.circleMarker([lat, lng], {
-        radius: 7, fillColor: '#e74c3c', color: '#c0392b',
-        weight: 2, fillOpacity: 1
-      }).addTo(map).bindPopup('<b>Ubicación Encontrada</b>').openPopup();
-
-      map.setView([lat, lng], 14);
-
-      const ptBuscado = turf.point([lng, lat]);
-      let puntoCercano = null;
-      let distMin = Infinity;
-
-      puntosDatos.forEach(p => {
-        const ptRef = turf.point([p.lng, p.lat]);
-        const d = turf.distance(ptBuscado, ptRef, { units: 'kilometers' });
-        if (d < distMin) { distMin = d; puntoCercano = p; }
-      });
-
-      document.getElementById('valDireccion').innerText =
-        data[0].display_name.split(',').slice(0, 2).join(', ');
-      document.getElementById('valPunto').innerText = puntoCercano.nombre;
-      document.getElementById('valDistancia').innerText = `${distMin.toFixed(2)} km`;
-
-      ultimoPuntoId = puntoCercano.id;
-      aplicarSeleccion(puntoCercano.id);
-
-    } else {
-      document.getElementById('valDireccion').innerText = 'No encontrada';
-      alert('No se encontró la dirección en Capital Federal.');
-    }
-  } catch (error) {
-    console.error('Error técnico detectado:', error);
-    document.getElementById('valDireccion').innerText = 'Error de red';
-    alert('Error de conexión con el servicio de búsqueda. Intentá de nuevo en unos segundos.');
-  }
-}
-
-
-function aplicarSeleccion(puntoId) {
-  const verRegiones = document.getElementById('chkRegiones').checked;
-  const verBordes   = document.getElementById('chkBordes').checked;
-
-  if (selectedLayer) {
-    selectedLayer.setStyle({
-      weight: verBordes ? 2 : 0,
-      color: '#ffffff',
-      fillOpacity: verRegiones ? 0.7 : 0,
-      opacity: verBordes ? 1 : 0
-    });
-    selectedLayer = null;
-  }
-
-  const nueva = poligonosReferencia[puntoId];
-  if (nueva && verRegiones) {
-    nueva.setStyle({ weight: 4, color: '#2968c8', fillOpacity: 0.9, opacity: 1 });
-    nueva.bringToFront();
-    selectedLayer = nueva;
-  }
-
-  capaPuntos.bringToFront();
-  if (marcadorBusqueda) marcadorBusqueda.bringToFront();
-}
-
-function refrescarVista() {
-  if (ultimoPuntoId && poligonosReferencia[ultimoPuntoId]) {
-    aplicarSeleccion(ultimoPuntoId);
-  } else {
-    const verRegiones = document.getElementById('chkRegiones').checked;
-    const verBordes   = document.getElementById('chkBordes').checked;
-    Object.values(poligonosReferencia).forEach(layer => {
-      layer.setStyle({
-        weight: verBordes ? 2 : 0,
-        fillOpacity: verRegiones ? 0.7 : 0,
-        opacity: verBordes ? 1 : 0
-      });
-    });
-  }
-}
-
-
-function intersectar(a, b) {
-  try {
-    return turf.intersect(turf.featureCollection([a, b])); // Turf v7
-  } catch (e) {
-    return turf.intersect(a, b);                            // Turf v6
-  }
-}
-
-const PALETA = [
-  '#2968c8','#e67e22','#16a085','#8e44ad','#c0392b','#2c3e50',
-  '#d35400','#27ae60','#2980b9','#f39c12','#7f8c8d','#c2185b',
-  '#00838f','#5d4037','#455a64','#6a1b9a','#ef6c00','#00695c',
-  '#283593','#ad1457','#4e342e','#33691e','#0277bd','#bf360c'
-];
-
-function colorDePunto(id) {
-  let h = 0;
-  const s = String(id);
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 997;
-  return PALETA[h % PALETA.length];
-}
-
-function recalcularVoronoi() {
-  if (!limiteCABA) {
-    console.error('Falta el polígono límite de CABA (limiteCABA).');
-    return;
-  }
-  if (puntosDatos.length < 2) return;
-
-  Object.keys(poligonosReferencia).forEach(k => {
-    const capa = poligonosReferencia[k];
-    if (capa && capa.remove) capa.remove();
-    delete poligonosReferencia[k];
-  });
-  selectedLayer = null;
-
-  const puntosFC = turf.featureCollection(
-    puntosDatos.map(p => turf.point([p.lng, p.lat], { id: p.id, nombre: p.nombre }))
-  );
-
-  // 3. Voronoi dentro de la bbox de CABA
-  const bbox = turf.bbox(limiteCABA);
-  const voronoi = turf.voronoi(puntosFC, { bbox });
-  if (!voronoi || !voronoi.features) {
-    console.warn('Voronoi vacío.');
-    return;
-  }
-
-  // 4. Recortar cada celda contra CABA
-  let creadas = 0;
-
-  voronoi.features.forEach(celda => {
-    if (!celda) return;
-
-    let recorte;
-    try {
-      recorte = intersectar(celda, limiteCABA);
-    } catch (e) {
-      console.warn('Error al intersectar celda con CABA:', e);
-      return;
-    }
-    if (!recorte) return;
-
-    // ¿A qué punto pertenece esta celda?
-    let dueno = puntosDatos.find(p =>
-      turf.booleanPointInPolygon(turf.point([p.lng, p.lat]), recorte)
-    );
-
-    if (!dueno) {
-      const c = turf.centroid(recorte);
-      let best = null, bestD = Infinity;
-      puntosDatos.forEach(p => {
-        const d = turf.distance(c, turf.point([p.lng, p.lat]));
-        if (d < bestD) { bestD = d; best = p; }
-      });
-      dueno = best;
-    }
-    if (!dueno) return;
-
-    const layer = L.geoJSON(recorte, {
-      style: {
-        weight: 0,
-        color: '#ffffff',
-        fillColor: colorDePunto(dueno.id),
-        fillOpacity: 0,
-        opacity: 0
-      }
-    }).addTo(capaVoronoi);
-
-    poligonosReferencia[dueno.id] = layer;
-    creadas++;
-  });
-
-  console.log(`Voronoi generado: ${puntosDatos.length} puntos → ${creadas} regiones.`);
-
-  actualizarContador(creadas);
-
-  // 5. Restaurar selección o mostrar todo
-  if (ultimoPuntoId && poligonosReferencia[ultimoPuntoId]) {
-    aplicarSeleccion(ultimoPuntoId);
-  } else {
-    refrescarVista();
-  }
-}
-
-function actualizarContador(regiones) {
-  const txt = `${puntosDatos.length} puntos · ${regiones} regiones Voronoi`;
-  document.getElementById('contadorVoronoi').innerText = txt;
-  document.getElementById('badgeTotal').innerText =
-    `Puntos: ${puntosDatos.length} · Regiones: ${regiones}`;
-}
-
-
-function dibujarPuntos() {
-  capaPuntos.clearLayers();
-
-  puntosDatos.forEach(p => {
-    const esNuevo = p.id.startsWith('n');
-    L.circleMarker([p.lat, p.lng], {
-      radius: esNuevo ? 7 : 6,
-      fillColor: esNuevo ? '#8e44ad' : colorDePunto(p.id),
-      color: '#ffffff',
-      weight: 2,
-      fillOpacity: 1
-    })
-      .addTo(capaPuntos)
-      .bindPopup(
-        `<b>${p.nombre}</b><br>` +
-        `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` +
-        (esNuevo ? '<br><i>Punto nuevo</i>' : '')
-      );
-  });
-}
-
-
-async function cargarLimiteCABA() {
-  const url = 'https://raw.githubusercontent.com/martgnz/buenos-aires-geojson/master/barrios.geojson';
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    const features = data.features || [];
-    let union = null;
-
-    features.forEach(f => {
-      try {
-        union = union ? turf.union(union, f) : f;
-      } catch (e) { /* ignorar */ }
-    });
-
-    if (!union) throw new Error('No se pudo unir barrios.');
-    limiteCABA = union;
-
-    L.geoJSON(limiteCABA, {
-      style: { color: '#333', weight: 1.5, fill: false, opacity: 0.6 },
-      interactive: false
-    }).addTo(map);
-
-    map.fitBounds(L.geoJSON(limiteCABA).getBounds(), { padding: [20, 20] });
-
-    dibujarPuntos();
-    recalcularVoronoi();
-
-  } catch (err) {
-    console.error('Error al cargar límite de CABA:', err);
-    alert('No se pudo cargar el límite de CABA. Verificá tu conexión o cambiá la URL del GeoJSON.');
-  }
-}
-
-window.addEventListener('load', cargarLimiteCABA);
-</script>
-
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Turf.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    
+    <script>
+        const puntosDatos = [
+            { id: 1,  nombre: "Murguiondo 3945, CABA", lat: -34.6811, lng: -58.4735 },
+            { id: 2,  nombre: "Avenida Avellaneda 3800, CABA", lat: -34.6293, lng: -58.4815 },
+            { id: 3,  nombre: "Juana Manso 900, CABA", lat: -34.6111, lng: -58.3619 },
+            { id: 4,  nombre: "Avenida de los Constituyentes 2802, CABA", lat: -34.5886, lng: -58.4831 },
+            { id: 5,  nombre: "Hilario de Almeira 4800, CABA", lat: -34.6186, lng: -58.5078 },
+            { id: 6,  nombre: "Ramallo 2200, CABA", lat: -34.5424, lng: -58.4727 },
+            { id: 7,  nombre: "Manuela Pedraza 2700, CABA", lat: -34.5501, lng: -58.4705 },
+            { id: 8,  nombre: "Valdenegro 3800, CABA", lat: -34.5552, lng: -58.4870 },
+            { id: 9,  nombre: "Avenida General Paz 3802, CABA", lat: -34.5683, lng: -58.5020 },
+            { id: 10, nombre: "Gabriela Mistral 4100, CABA", lat: -34.5888, lng: -58.5085 },
+            { id: 11, nombre: "Capitán General Ramón Freire 120, CABA", lat: -34.5752, lng: -58.4445 },
+            { id: 12, nombre: "Bulnes 400, CABA", lat: -34.6046, lng: -58.4144 },
+            { id: 13, nombre: "Avenida Gaona 2200, CABA", lat: -34.6163, lng: -58.4554 },
+            { id: 14, nombre: "Avenida Rivadavia 10300, CABA", lat: -34.6402, lng: -58.5204 },
+            { id: 15, nombre: "Patron 6232, CABA", lat: -34.6482, lng: -58.5135 },
+            { id: 16, nombre: "Avenida Lacarra 1000, CABA", lat: -34.6455, lng: -58.4783 },
+            { id: 17, nombre: "Yerbal 835, CABA", lat: -34.6203, lng: -58.4449 },
+            { id: 18, nombre: "Monteagudo 100, CABA", lat: -34.6375, lng: -58.4068 },
+            { id: 19, nombre: "Corea 1775, CABA", lat: -34.6450, lng: -58.4395 },
+            { id: 20, nombre: "El Salvador 4037, CABA", lat: -34.5910, lng: -58.4184 },
+            { id: 21, nombre: "La Rioja 1000, CABA", lat: -34.6247, lng: -58.4011 },
+            { id: 22, nombre: "Peru 1250, CABA", lat: -34.6200, lng: -58.3750 },
+            { id: 23, nombre: "Manzana 33 Casa 14, Av. Pres. Ramón Villa 31, CABA", lat: -34.58150, lng: -58.37550 },
+            { id: 24, nombre: "Gavilán 1245, CABA", lat: -34.60150, lng: -58.44050 }
+        ];
+
+        const coloresPasteles = [
+            '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E6B3FF', '#FFB3E6',
+            '#E2F0CB', '#FFDAC1', '#B5EAD7', '#C7CEEA', '#F1CBFF', '#D4F0F0', '#F3E5AB',
+            '#FFD1DC', '#F0E68C', '#E6E6FA', '#FFF0F5', '#F5FFFA', '#F0FFF0', '#FDF5E6', '#FFFACD',
+            '#E0BBE4', '#B0E0E6'
+        ];
+
+        const limitesCABA = [
+            [-34.705, -58.535], 
+            [-34.525, -58.335]  
+        ];
+
+        const map = L.map('map', { 
+            zoomControl: false,
+            maxBounds: limitesCABA,
+            maxBoundsViscosity: 1.0,
+            minZoom: 11
+        }).setView([-34.6131, -58.4423], 12);
+        
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ',
+            maxZoom: 19,
+            opacity: 0.8
+        }).addTo(map);
+
+        const capaPoligonos = L.layerGroup().addTo(map);
+        const capaPuntos = L.layerGroup().addTo(map);
+        let poligonosReferencia = {};
+        let marcadorBusqueda = null;
+        let selectedLayer = null;
+
+        const cabaBoundary = turf.polygon([[
+            [-58.4725,-34.5275], [-58.4630,-34.5320], [-58.4480,-34.5400], [-58.4250,-34.5530],
+            [-58.3970,-34.5700], [-58.3780,-34.5820], [-58.3650,-34.5920], [-58.3550,-34.6050],
+            [-58.3510,-34.6200], [-58.3550,-34.6330], [-58.3650,-34.6430], [-58.3820,-34.6560],
+            [-58.4030,-34.6670], [-58.4280,-34.6800], [-58.4480,-34.6920], [-58.4670,-34.7030],
+            [-58.4780,-34.6950], [-58.4930,-34.6800], [-58.5080,-34.6620], [-58.5230,-34.6450],
+            [-58.5320,-34.6300], [-58.5300,-34.6150], [-58.5220,-34.5980], [-58.5100,-34.5800],
+            [-58.4950,-34.5600], [-58.4820,-34.5450], [-58.4725,-34.5275]
+        ]]);
+
+        const featurePoints = puntosDatos.map(p => turf.point([p.lng, p.lat]));
+        const puntosGeoJSON = turf.featureCollection(featurePoints);
+        const bbox = [-58.55, -34.72, -58.33, -34.52]; 
+        const voronoiPolygons = turf.voronoi(puntosGeoJSON, { bbox: bbox });
+
+        turf.featureEach(voronoiPolygons, (currentFeature, featureIndex) => {
+            if (!currentFeature) return;
+            
+            let finalFeature = currentFeature;
+            const clippedFeature = turf.intersect(currentFeature, cabaBoundary);
+            if (clippedFeature) {
+                finalFeature = clippedFeature;
+            }
+
+            const ptInfo = puntosDatos[featureIndex];
+            const colorFill = coloresPasteles[featureIndex % coloresPasteles.length];
+            
+            const baseStyle = {
+                color: '#ffffff',
+                weight: 2,
+                fillColor: colorFill,
+                fillOpacity: 0.7,
+                opacity: 1
+            };
+
+            const polyLayer = L.geoJSON(finalFeature, {
+                style: baseStyle,
+                onEachFeature: function (feature, layer) {
+                    poligonosReferencia[ptInfo.id] = layer; 
+
+                    layer.on({
+                        mouseover: function (e) {
+                            if (!document.getElementById('chkRegiones').checked) return;
+                            if (selectedLayer !== layer) {
+                                layer.setStyle({ weight: 3, color: '#3483fa', fillOpacity: 0.9 });
+                                layer.bringToFront();
+                                capaPuntos.bringToFront();
+                            }
+                        },
+                        mouseout: function (e) {
+                            if (!document.getElementById('chkRegiones').checked) return;
+                            const verBordes = document.getElementById('chkBordes').checked;
+                            if (selectedLayer !== layer) {
+                                layer.setStyle({ weight: verBordes ? 2 : 0, color: '#ffffff', fillOpacity: 0.7, opacity: verBordes ? 1 : 0 });
+                            }
+                        },
+                        click: function (e) {
+                            if (!document.getElementById('chkRegiones').checked) return;
+                            const verBordes = document.getElementById('chkBordes').checked;
+
+                            if (selectedLayer && selectedLayer !== layer) {
+                                selectedLayer.setStyle({ weight: verBordes ? 2 : 0, color: '#ffffff', fillOpacity: 0.7, opacity: verBordes ? 1 : 0 });
+                            }
+
+                            if (selectedLayer === layer) {
+                                selectedLayer = null;
+                                layer.setStyle({ weight: 3, color: '#3483fa', fillOpacity: 0.9 });
+                                document.getElementById('valDireccion').innerText = "-";
+                                document.getElementById('valPunto').innerText = "-";
+                                document.getElementById('valDistancia').innerText = "-";
+                            } 
+                            else {
+                                selectedLayer = layer;
+                                layer.setStyle({ weight: 4, color: '#2968c8', fillOpacity: 0.9, opacity: 1 });
+                                layer.bringToFront();
+                                capaPuntos.bringToFront();
+
+                                document.getElementById('valDireccion').innerText = "Selección manual";
+                                document.getElementById('valPunto').innerText = ptInfo.nombre.split(',')[0];
+                                document.getElementById('valDistancia').innerText = "Región seleccionada";
+
+                                if (marcadorBusqueda) {
+                                    map.removeLayer(marcadorBusqueda);
+                                    marcadorBusqueda = null;
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+            polyLayer.addTo(capaPoligonos);
+        });
+
+        puntosDatos.forEach((punto, index) => {
+            const num = index + 1;
+            const esNuevo = (punto.id === 23 || punto.id === 24);
+            const icon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="marker-pin ${esNuevo ? 'nuevo' : ''}">${num}</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -12]
+            });
+            L.marker([punto.lat, punto.lng], { icon: icon })
+             .bindPopup(`<b>${punto.nombre.split(',')[0]}</b>`)
+             .addTo(capaPuntos);
+        });
+
+        function toggleVisibilidad() {
+            const verPuntos = document.getElementById('chkPuntos').checked;
+            const verRegiones = document.getElementById('chkRegiones').checked;
+            const verBordes = document.getElementById('chkBordes').checked;
+            const verNumeros = document.getElementById('chkNumeros').checked;
+            
+            const container = document.getElementById('map-container');
+
+            if(verPuntos) container.classList.remove('hide-points');
+            else container.classList.add('hide-points');
+
+            if(verNumeros) container.classList.remove('hide-numbers');
+            else container.classList.add('hide-numbers');
+
+            Object.values(poligonosReferencia).forEach(layer => {
+                if (selectedLayer === layer) {
+                    layer.setStyle({ fillOpacity: verRegiones ? 0.9 : 0, opacity: verBordes ? 1 : 0, weight: verBordes ? 4 : 0, color: '#2968c8' });
+                } else {
+                    layer.setStyle({ fillOpacity: verRegiones ? 0.7 : 0, opacity: verBordes ? 1 : 0, weight: verBordes ? 2 : 0, color: '#ffffff' });
+                }
+            });
+        }
+
+        function limpiarMapa() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('valDireccion').innerText = '-';
+            document.getElementById('valPunto').innerText = '-';
+            document.getElementById('valDistancia').innerText = '-';
+            
+            if (marcadorBusqueda) {
+                map.removeLayer(marcadorBusqueda);
+                marcadorBusqueda = null;
+            }
+            
+            if (selectedLayer) {
+                const verBordes = document.getElementById('chkBordes').checked;
+                const verRegiones = document.getElementById('chkRegiones').checked;
+                selectedLayer.setStyle({ weight: verBordes ? 2 : 0, color: '#ffffff', fillOpacity: verRegiones ? 0.7 : 0, opacity: verBordes ? 1 : 0 });
+                selectedLayer = null;
+            }
+            map.setView([-34.6131, -58.4423], 12);
+        }
+
+        async function buscarUbicacion() {
+            const input = document.getElementById('searchInput').value.trim();
+            if (!input) return;
+
+            document.getElementById('valDireccion').innerText = "Buscando...";
+            const query = `${input}, Ciudad Autónoma de Buenos Aires, Argentina`;
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=ar&email=calosjose1921@gmail.com`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Language': 'es-ES,es;q=0.9'
+                    }
+                });
+
+                if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+                const data = await response.json();
+
+                if (data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+
+                    if (marcadorBusqueda) map.removeLayer(marcadorBusqueda);
+
+                    marcadorBusqueda = L.circleMarker([lat, lng], {
+                        radius: 7, fillColor: "#e74c3c", color: "#c0392b", weight: 2, fillOpacity: 1
+                    }).addTo(map).bindPopup("<b>Ubicación Encontrada</b>").openPopup();
+                    
+                    map.setView([lat, lng], 14);
+
+                    const ptBuscado = turf.point([lng, lat]);
+                    let puntoCercano = null;
+                    let distMin = Infinity;
+
+                    puntosDatos.forEach(p => {
+                        const ptRef = turf.point([p.lng, p.lat]);
+                        const d = turf.distance(ptBuscado, ptRef, { units: 'kilometers' });
+                        if (d < distMin) { distMin = d; puntoCercano = p; }
+                    });
+
+                    document.getElementById('valDireccion').innerText = data[0].display_name.split(',').slice(0, 2).join(', ');
+                    document.getElementById('valPunto').innerText = puntoCercano.nombre.split(',')[0];
+                    document.getElementById('valDistancia').innerText = `${distMin.toFixed(2)} km`;
+
+                    const verRegiones = document.getElementById('chkRegiones').checked;
+                    const verBordes = document.getElementById('chkBordes').checked;
+
+                    if (selectedLayer) {
+                        selectedLayer.setStyle({ weight: verBordes ? 2 : 0, color: '#ffffff', fillOpacity: verRegiones ? 0.7 : 0, opacity: verBordes ? 1 : 0 });
+                    }
+
+                    selectedLayer = poligonosReferencia[puntoCercano.id];
+                    if (selectedLayer && verRegiones) {
+                        selectedLayer.setStyle({ weight: 4, color: '#2968c8', fillOpacity: 0.9, opacity: 1 });
+                        selectedLayer.bringToFront();
+                        capaPuntos.bringToFront();
+                        if (marcadorBusqueda) marcadorBusqueda.bringToFront();
+                    }
+                } else {
+                    document.getElementById('valDireccion').innerText = "No encontrada";
+                    alert("No se encontró la dirección en Capital Federal.");
+                }
+            } catch (error) {
+                console.error("Error técnico detectado:", error);
+                document.getElementById('valDireccion').innerText = "Error de red";
+                alert("Error de conexión. Es probable que hayas superado el límite de peticiones o tu red bloquee la salida.");
+            }
+        }
+
+        document.getElementById('searchInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') buscarUbicacion();
+        });
+    </script>
 </body>
 </html>
